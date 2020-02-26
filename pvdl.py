@@ -81,6 +81,7 @@ def curl_limit_rate(url, filename, rate_limit, desc):
     with DownloadProgressBar(unit='B', unit_scale=True,
                                miniters=1, desc=desc) as pbar:
         c = pycurl.Curl()
+        c.setopt(c.SSL_VERIFYPEER, 0)
         c.setopt(c.URL, url)
         c.setopt(c.MAX_RECV_SPEED_LARGE, rate_limit)
         if os.path.exists(filename):
@@ -95,7 +96,7 @@ def curl_limit_rate(url, filename, rate_limit, desc):
         c.perform()
     
 def download_url(url, output_path, limit_rate):
-    try:
+    try:        
         desc = output_path.split(os.sep)[-1]
         desc = desc[:desc.index(".mp4")]
         #with DownloadProgressBar(unit='B', unit_scale=True,
@@ -153,9 +154,9 @@ def get_chapters(vid_id, limit_rate):
         print_err("Error: Wrong link. No video found.")
         
     title = details["title"]
-    title = re.sub(r"[<>|/\\?*]", "_" ,title);
-    os.makedirs(title, 0o755, exist_ok=True)
-        
+    title = re.sub(r"[<>|/\\?:*]", "_" ,title)
+    title = title.strip()
+    os.makedirs(title, 0o755, exist_ok=True)        
     url = 'https://static.packt-cdn.com/products/{}/toc'.format(vid_id)
     data = sess.get(url)
     details = json.loads(data.content)
@@ -166,14 +167,17 @@ def get_chapters(vid_id, limit_rate):
     all_chapters = details['chapters']
     for x,i in enumerate(all_chapters):
         section = i['title']
-        section = re.sub(r"[<>|/\\?*]", "_" , section)
+        section = re.sub(r"[<>|/\\?:*]", "_" , section)
+        section = section.strip()
         s_path = "{}{}{:02}-{}".format(title, os.sep, x+1, section)
         os.makedirs(s_path, 0o755, exist_ok=True)
         print(bcolors.OKGREEN + "\nChapter {}/{}:".format(x+1, len(all_chapters)), section, "\n" + bcolors.ENDC)
         for y,c in enumerate(i['sections']):
-            chapter = c['title']
-            chapter = re.sub(r"[<>|/\\?*]", "_" , chapter)
-            c_path = "{}{}{:02}-{}.mp4".format(s_path, os.sep , y+1, chapter)
+            vid_file = c['title']
+            vid_file = re.sub(r"[<>|/\\?:*]", "_" , vid_file)
+            vid_file = vid_file.strip()
+            vid_file = vid_file.replace('"','')
+            c_path = "{}{}{:02}-{}.mp4".format(s_path, os.sep , y+1, vid_file)
             video_id = i['id'] + '/' + c['id']
             video_url = get_video_url(vid_id, video_id)
             download_url(video_url, c_path, limit_rate)
